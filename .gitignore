@@ -29,7 +29,9 @@ __pycache__
 .#*
 .coverage
 .pytest_cache
+*.ckpt
 src
+lightning_logs
 
 *.swp
 *.map
@@ -52,3 +54,4 @@ geckodriver.log
 *.code-workspace
 .history
 .vscode
+Yolo_V2/Untitled.ipynb

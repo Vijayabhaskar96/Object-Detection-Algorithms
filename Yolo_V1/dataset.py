@@ -65,7 +65,7 @@ class VOCDataset(torch.utils.data.Dataset):
             if type(output_labels_list)==str:
                 output_labels_list = [output_labels_list]
             transformed_items = self.transform(image = image, bboxes = boxes[:,1:], class_labels=output_labels_list)
-            image = transformed_items["image"]
+            image = transformed_items["image"]/255.
             boxes = transformed_items["bboxes"]
             class_labels = transformed_items["class_labels"]
 
@@ -130,7 +130,7 @@ class YoloV1DataModule(pl.LightningDataModule):
             self.test_dataset = VOCDataset(test_files, transform=self.test_transform)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=configs.BATCH_SIZE, num_workers=configs.NUM_WORKERS, pin_memory=configs.PIN_MEMORY, shuffle=True, drop_last=True)
+        return DataLoader(self.train_dataset, batch_size=configs.BATCH_SIZE, num_workers=configs.NUM_WORKERS, pin_memory=configs.PIN_MEMORY, drop_last=True)
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=configs.BATCH_SIZE, pin_memory=configs.PIN_MEMORY)
