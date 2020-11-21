@@ -28,15 +28,10 @@ os.environ['KAGGLE_KEY']=kaggle_data["key"]
 # !unzip pascal-voc-2007-and-2012.zip
 # %run voc_label.py
 
-import pandas as pd
 from collections import namedtuple
 import torch
 from torch import nn
-from torch._C import device
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
-import albumentations as A
-from albumentations.pytorch.transforms import ToTensor
 from dataset import YoloV2DataModule
 from utils import get_bboxesmine, intersection_over_union, mAP
 import configs
@@ -95,10 +90,6 @@ class YoloV2Loss(nn.Module):
         self.B = B
         self.C = C
 
-        # These are from Yolo paper, signifying how much we should
-        # pay loss for no object (noobj) and the box coordinates (coord)
-        self.lambda_noobj = 0.5
-        self.lambda_coord = 5
 
     def forward(self, predictions, target, device,epoch=0):
         self.anchor_boxes = self.anchor_boxes.to(device)
@@ -119,9 +110,11 @@ class YoloV2Loss(nn.Module):
         obj_loss = self.mse(exist_mask*ious,existing_boxes[...,0:1])
         no_obj_loss = self.mse(torch.zeros_like(non_existing_boxes[...,0:1]),non_existing_boxes[...,0:1])
         class_loss = F.nll_loss((exist_mask*F.log_softmax(predictions[..., 1:-4],dim=-1)).flatten(end_dim=-2),target[..., 1:-4].flatten(end_dim=-2).argmax(-1))
-        return 5*xy_loss + 5*wh_loss + obj_loss + 0.5*no_obj_loss + class_loss
+        return 5*xy_loss + 5*wh_loss + obj_loss + no_obj_loss + class_loss
 
 
+#Thanks to Zhenliang He for the code
+#https://discuss.pytorch.org/t/is-there-any-layer-like-tensorflows-space-to-depth-function/3487/15
 class SpaceToDepth(nn.Module):
     def __init__(self, block_size):
         super().__init__()
@@ -247,5 +240,6 @@ class YoloV2Model(pl.LightningModule):
 
 model = YoloV2Model(architechture = [architechture_config1,architechture_config2], split_size=13, num_boxes=5, num_classes=20)
 data = YoloV2DataModule()
-trainer = pl.Trainer(gpus=1,max_epochs=1000)
+
+trainer = pl.Trainer(gpus=1,overfit_batches=1,max_epochs=1000)
 trainer.fit(model,datamodule=data)
