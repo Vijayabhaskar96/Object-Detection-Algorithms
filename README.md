@@ -1,4 +1,4 @@
-#Object Detection Algorithms Implementations
+# Object Detection Algorithms Implementations
 This repo contains my implementations of popular object detection algorithms in Pytorch (more specifically using Pytorch-Lighning).
 I try to implement them as I learn them, feel free create an issue if you find any bug in my code.
 
