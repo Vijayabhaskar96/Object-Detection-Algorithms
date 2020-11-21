@@ -19,6 +19,7 @@ node_modules
 *.py[co]
 __pycache__
 .jovianrc
+*.weights
 *.egg-info
 *~
 *.bak
