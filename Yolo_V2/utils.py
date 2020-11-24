@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from collections import Counter
 from torchvision.ops.boxes import batched_nms,box_iou
-
+from collections import namedtuple
 def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     """
     Calculates intersection over union
@@ -48,38 +48,38 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     box2_area = abs((box2_x2 - box2_x1) * (box2_y2 - box2_y1))
 
     return intersection / (box1_area + box2_area - intersection + 1e-6)
-def convert_cellboxes(predictions, S, device):
-    """
-    Converts bounding boxes output from Yolo with
-    an image split size of S into entire image ratios
-    rather than relative to cell ratios. Tried to do this
-    vectorized, but this resulted in quite difficult to read
-    code... Use as a black box? Or implement a more intuitive,
-    using 2 for loops iterating range(S) and convert them one
-    by one, resulting in a slower but more readable implementation.
-    """
 
-    # predictions = predictions.cpu()
-    batch_size = predictions.shape[0]
-    predictions = predictions.reshape(batch_size, 7, 7, 30)
-
-    bboxes1 = predictions[..., 21:25]
-    bboxes2 = predictions[..., 26:30]
-    scores = torch.cat((predictions[..., 20].unsqueeze(0), predictions[..., 25].unsqueeze(0)), dim=0)
+def ElevenPointInterpolatedAP(rec, pre):
+    """
+    Calcualtes 11-point interpolated Average Precision
     
-    best_box = scores.argmax(0).unsqueeze(-1)
-    best_boxes = bboxes1 * (1 - best_box) + best_box * bboxes2
-    cell_indices = torch.arange(7).repeat(batch_size, 7, 1).unsqueeze(-1).to(device)
-    x = 1 / S * (best_boxes[..., :1] + cell_indices)
-    y = 1 / S * (best_boxes[..., 1:2] + cell_indices.permute(0, 2, 1, 3))
-    w_y = 1 / S * best_boxes[..., 2:4]
-
-    converted_bboxes = torch.cat((x, y, w_y), dim=-1)
-    predicted_class = predictions[..., :20].argmax(-1).unsqueeze(-1)
-    best_confidence = torch.max(predictions[..., 20], predictions[..., 25]).unsqueeze(-1)
-
-    converted_preds = torch.cat((predicted_class.float(), best_confidence, converted_bboxes), dim=-1)
-    return converted_preds
+    Parameters:
+        rec: Recall
+            type: tensor
+            shape: 1D tensor
+        prec: Precision
+            type: tensor
+            shape: 1D tensor
+    Result:
+        ap: Average Precision
+        type: float
+    """
+    recallValues = reversed(torch.linspace(0,1,11,dtype=torch.float64))
+    rhoInterp = []
+    # For each recallValues (0, 0.1, 0.2, ... , 1)
+    for r in recallValues:
+        # Obtain all indexs of recall values higher or equal than r
+        GreaterRecallsIndices = torch.nonzero((rec >= r),as_tuple=False).flatten()
+        pmax = 0
+        # If there are recalls above r
+        if GreaterRecallsIndices.nelement() != 0:
+            #Choose the max precision value, from position min(GreaterRecallsIndices) to the end
+            pmax = max(pre[GreaterRecallsIndices.min():])
+#         print(r,pmax,GreaterRecallsIndices)
+        rhoInterp.append(pmax)
+    # By definition AP = sum(max(precision whose recall is above r))/11
+    ap = sum(rhoInterp) / 11
+    return ap
 
 def AllPointInterpolatedAP(rec, prec):
     """
@@ -119,13 +119,12 @@ def calculate_ap(precisions, recalls):
     # precisions = torch.cat((torch.tensor([1]), precisions))
     # recalls = torch.cat((torch.tensor([0]), recalls))
     # return torch.trapz(precisions, recalls)
-    return AllPointInterpolatedAP(recalls,precisions)
+    return ElevenPointInterpolatedAP(recalls,precisions)
 def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
     if len(pred_boxes)==0 or len(true_boxes) == 0:
         return 0
     # list storing all AP for respective classes
     average_precisions = []
-
     pred_boxes = torch.tensor(pred_boxes)
     true_boxes = torch.tensor(true_boxes)
     # used for numerical stability later on
@@ -190,9 +189,9 @@ def yolo_to_normal(boxes):
 
 def cells_to_boxes(cells,S,B):
     boxes = cells.reshape(S*S*B,-1)
-    box_confidence = boxes[:,0].unsqueeze(-1)
-    box_class = boxes[:,1:21].argmax(-1).unsqueeze(-1)
-    box_coords = boxes[:,-4:]
+    box_confidence = boxes[:,4].unsqueeze(-1)
+    box_class = boxes[:,5:].argmax(-1).unsqueeze(-1)
+    box_coords = boxes[:,:4]
     converted_preds = torch.cat((box_class.float(), box_confidence, box_coords), dim=-1)
     return converted_preds
 
@@ -206,13 +205,15 @@ def get_bboxesmine(x,y,predictions,
     for idx in range(len(x)):
         true_bboxes = cells_to_boxes(y[idx],S,B)
         bboxes = cells_to_boxes(predictions[idx],S,B)
+        # ious = intersection_over_union(predictions[idx][...,:4],y[idx][...,:4].float()).flatten()
+        bboxes[:,1] = torch.sigmoid(bboxes[:,1])
         bboxes = bboxes[bboxes[:,1]>threshold]
         bboxes_idx, bboxes_conf, bboxes_alone = bboxes[:,0], bboxes[:,1], bboxes[:,2:]
         if len(bboxes)==0:
             continue
         nms_boxes_idxs = batched_nms(boxes = yolo_to_normal(bboxes_alone), scores=bboxes_conf,idxs=bboxes_idx,iou_threshold=iou_threshold)
         nms_boxes = bboxes[nms_boxes_idxs]
-        idx_arr = torch.full(size=(len(nms_boxes),1),fill_value=float(idx),device=device)
+        idx_arr = torch.full(size=(len(nms_boxes),1), fill_value=float(idx),device=device)
         nms_boxes = torch.cat([idx_arr, nms_boxes],dim=1)
         
         true_bboxes2 = true_bboxes[true_bboxes[:,0]>threshold]
@@ -230,3 +231,65 @@ def get_bboxesmine(x,y,predictions,
     else:
         y = []
     return x,y
+
+class WeightReader:
+    def __init__(self, weight_file):
+        self.offset = 5
+        self.all_weights = np.fromfile(weight_file, dtype=np.float32)
+        print(f"Weights length:{len(self.all_weights)} offset:{self.offset}")
+    def read_bytes(self, size):
+        self.offset = self.offset + size
+        return self.all_weights[self.offset-size:self.offset]
+    
+    def reset(self):
+        self.offset = 5
+
+
+def load_conv_block(block,wr,with_bn=True):
+    if with_bn:
+        num_bn_biases = block.batchnorm.bias.numel()
+
+        #Load the weights
+        bn_biases = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_weights = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_running_mean = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_running_var = torch.from_numpy(wr.read_bytes(num_bn_biases))
+
+        #Cast the loaded weights into dims of model weights. 
+        bn_biases = bn_biases.view_as(block.batchnorm.bias.data)
+        bn_weights = bn_weights.view_as(block.batchnorm.weight.data)
+        bn_running_mean = bn_running_mean.view_as(block.batchnorm.running_mean)
+        bn_running_var = bn_running_var.view_as(block.batchnorm.running_var)
+
+        #Copy the data to model
+        block.batchnorm.bias.data.copy_(bn_biases)
+        block.batchnorm.weight.data.copy_(bn_weights)
+        block.batchnorm.running_mean.copy_(bn_running_mean)
+        block.batchnorm.running_var.copy_(bn_running_var)
+        # print("Applied Weights for CNNBlock.",wr.offset)
+    else:
+        #DummyBlock to add a fake .conv attribute
+        DummyBlock = namedtuple("DummyBlock",["conv"])
+        block = DummyBlock(block)
+        
+        #Number of biases
+        num_biases = block.conv.bias.numel()
+
+        #Load the weights
+        conv_biases = torch.from_numpy(wr.read_bytes(num_biases))
+
+        #reshape the loaded weights according to the dims of the model weights
+        conv_biases = conv_biases.view_as(block.conv.bias.data)
+
+        #Finally copy the data
+        block.conv.bias.data.copy_(conv_biases)
+        # print("Applied Weights for CNN Layer.",wr.offset)
+
+    #Let us load the weights for the Convolutional layers
+    num_weights = block.conv.weight.numel()
+
+    #Do the same as above for weights
+    conv_weights = torch.from_numpy(wr.read_bytes(num_weights))
+
+    conv_weights = conv_weights.view_as(block.conv.weight.data)
+    block.conv.weight.data.copy_(conv_weights)

@@ -41,7 +41,7 @@ class VOCDataset(torch.utils.data.Dataset):
         for source_file in self.source_files:
             self.image_paths += Path(source_file).read_text().strip().split("\n")
         self.image_paths = [pathify(p) for p in self.image_paths]
-        self.label_paths = [p.parent.with_name("labels")/f"{p.stem}.txt" for p in self.image_paths]  
+        self.label_paths = [p.parent.with_name("labels")/f"{p.stem}.txt" for p in self.image_paths]
 
     def __len__(self):
         return len(self.image_paths)
@@ -72,7 +72,7 @@ class VOCDataset(torch.utils.data.Dataset):
             class_labels = transformed_items["class_labels"]
 
         # Convert To Cells
-        # 13 x 13 x Num of Anchor box x (class_confidence,...Class prediction...,[x,y,w,h])
+        # 13 x 13 x Num of Anchor box x ([x,y,w,h],class_confidence,...Class prediction...)
         label_matrix = torch.zeros((self.S, self.S, self.B, 1 + self.C + 4),dtype=torch.float64)
         for box, class_label in zip(boxes, class_labels):
             anchor_boxes = copy.deepcopy(self.anchor_boxes)
@@ -115,12 +115,12 @@ class VOCDataset(torch.utils.data.Dataset):
             # Box coordinates
             box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
             #j,i because in array row denotes height, to index height j is used first
-            label_matrix[j, i, max_idx[0],-4:] = box_coordinates
+            label_matrix[j, i, max_idx[0],:4] = box_coordinates
             
             #Set confidence to 1
-            label_matrix[j, i, max_idx[0], 0] = 1
+            label_matrix[j, i, max_idx[0], 4] = 1
             # Set one hot encoding for class_label
-            label_matrix[j, i, max_idx[0], 1 + class_label] = 1
+            label_matrix[j, i, max_idx[0], 5 + class_label] = 1
 
         return image, label_matrix
 
@@ -129,9 +129,9 @@ class YoloV2DataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         BASE_PATH = pathify(configs.BASE_DIR)
         self.train_transform = A.Compose([A.Resize(width=416, height=416),
-                                    A.ShiftScaleRotate(shift_limit=0.2,scale_limit=0.2,rotate_limit=0),A.Normalize(),ToTensor()],
+                                    A.ShiftScaleRotate(shift_limit=0.2,scale_limit=0.2,rotate_limit=0),ToTensor()],
                             bbox_params=A.BboxParams(format='yolo',label_fields=['class_labels']))
-        self.test_transform = A.Compose([A.Resize(width=416, height=416),A.Normalize(),ToTensor()],
+        self.test_transform = A.Compose([A.Resize(width=416, height=416),ToTensor()],
                                     bbox_params=A.BboxParams(format='yolo',label_fields=['class_labels']))
         if stage == 'fit' or stage is None:
             train_files = [BASE_PATH/"2007_train.txt",BASE_PATH/"2012_train.txt"]

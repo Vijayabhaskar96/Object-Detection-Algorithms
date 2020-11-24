@@ -16,17 +16,19 @@
 # ## Yolo V2 implementation in Pytorch
 #
 
-import os
-kaggle_data={"username":"ENTER_YOUR_KAGGLE_USERNAME_HERE","key":"ENTER_YOUR_KAGGLE_KEY_HERE"}
-os.environ['KAGGLE_USERNAME']=kaggle_data["username"]
-os.environ['KAGGLE_KEY']=kaggle_data["key"]
-# !pip install pytorch-lightning
-# !pip install kaggle
-# !pip install --upgrade albumentations
-# !wget https://raw.githubusercontent.com/pjreddie/darknet/master/scripts/voc_label.py
-# !kaggle datasets download -d vijayabhaskar96/pascal-voc-2007-and-2012
-# !unzip pascal-voc-2007-and-2012.zip
-# %run voc_label.py
+# +
+# import os
+# kaggle_data={"username":"ENTER_YOUR_KAGGLE_USERNAME_HERE","key":"ENTER_YOUR_KAGGLE_KEY_HERE"}
+# os.environ['KAGGLE_USERNAME']=kaggle_data["username"]
+# os.environ['KAGGLE_KEY']=kaggle_data["key"]
+# # !pip install pytorch-lightning
+# # !pip install kaggle
+# # !pip install --upgrade albumentations
+# # !wget https://raw.githubusercontent.com/pjreddie/darknet/master/scripts/voc_label.py
+# # !kaggle datasets download -d vijayabhaskar96/pascal-voc-2007-and-2012
+# # !unzip pascal-voc-2007-and-2012.zip
+# # %run voc_label.py
+# -
 
 from collections import namedtuple
 import torch
@@ -93,23 +95,27 @@ class YoloV2Loss(nn.Module):
 
     def forward(self, predictions, target, device,epoch=0):
         self.anchor_boxes = self.anchor_boxes.to(device)
-        exist_mask = target[...,0:1]
+        exist_mask = target[...,4:5]
         existing_boxes = exist_mask * predictions
-        non_existing_boxes = (1.0 - exist_mask) * predictions
         cell_idx = torch.arange(13,device=device)
-        bx = exist_mask*torch.sigmoid(predictions[...,-4:-3]) + exist_mask*cell_idx.view([1,1,-1,1,1])
-        by = exist_mask*torch.sigmoid(predictions[...,-3:-2]) + exist_mask*cell_idx.view([1,-1,1,1,1])
-        bw = exist_mask*self.anchor_boxes[:,2].view([1,1,1,-1,1]) * exist_mask*torch.exp(predictions[...,-2:-1])
-        bh = exist_mask*self.anchor_boxes[:,3].view([1,1,1,-1,1]) * exist_mask*torch.exp(predictions[...,-1:])
+        bx = exist_mask*torch.sigmoid(predictions[...,0:1]) + exist_mask*cell_idx.view([1,1,-1,1,1])
+        by = exist_mask*torch.sigmoid(predictions[...,1:2]) + exist_mask*cell_idx.view([1,-1,1,1,1])
+        bw = exist_mask*self.anchor_boxes[:,2].view([1,1,1,-1,1]) * exist_mask*torch.exp(predictions[...,2:3])
+        bh = exist_mask*self.anchor_boxes[:,3].view([1,1,1,-1,1]) * exist_mask*torch.exp(predictions[...,3:4])
 
-        ious = intersection_over_union(torch.cat([bx,by,bw,bh], dim=-1),target[...,-4:])
+        ious = intersection_over_union(torch.cat([bx,by,bw,bh], dim=-1),target[...,:4])
 
-        xy_loss = self.mse(torch.cat([bx,by], dim=-1), target[...,-4:-2])
+        xy_loss = self.mse(torch.cat([bx,by], dim=-1), target[...,:2])
         bwbh = torch.cat([bw,bh], dim=-1)
-        wh_loss = self.mse(torch.sqrt(torch.abs(bwbh)+1e-32),torch.sqrt(torch.abs(target[...,-2:])+1e-32))
-        obj_loss = self.mse(exist_mask*ious,existing_boxes[...,0:1])
-        no_obj_loss = self.mse(torch.zeros_like(non_existing_boxes[...,0:1]),non_existing_boxes[...,0:1])
-        class_loss = F.nll_loss((exist_mask*F.log_softmax(predictions[..., 1:-4],dim=-1)).flatten(end_dim=-2),target[..., 1:-4].flatten(end_dim=-2).argmax(-1))
+        wh_loss = self.mse(torch.sqrt(torch.abs(bwbh)+1e-32),torch.sqrt(torch.abs(target[...,2:4])+1e-32))
+        obj_loss = self.mse(exist_mask,exist_mask*ious*torch.sigmoid(existing_boxes[...,4:5]))
+        #(ious.max(-1)[0]<0.6).int().unsqueeze(-1)
+        no_obj_loss =self.mse((1-exist_mask),
+                             (((1-exist_mask)*
+                                     (1-torch.sigmoid(predictions[...,4:5])))*
+                                     ((ious.max(-1)[0]<0.6).int().unsqueeze(-1)
+                             )))
+        class_loss = F.nll_loss((exist_mask*F.log_softmax(predictions[..., 5:],dim=-1)).flatten(end_dim=-2),target[..., 5:].flatten(end_dim=-2).argmax(-1))
         return 5*xy_loss + 5*wh_loss + obj_loss + no_obj_loss + class_loss
 
 
@@ -168,7 +174,7 @@ class YoloV2Model(pl.LightningModule):
                               kernel_size = 1,
                               stride = 1,
                               padding = 0,
-                              bias = False)
+                              bias = True)
         self.loss = YoloV2Loss()
         self.anchor_boxes = torch.tensor([[0,0,1.3221, 1.73145],[0,0,3.19275, 4.00944],[0,0,5.05587, 8.09892],[0,0,9.47112, 4.84053],[0,0,11.2364, 10.0071]],device=self.device)
 
@@ -203,19 +209,19 @@ class YoloV2Model(pl.LightningModule):
 
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-5, weight_decay=configs.WEIGHT_DECAY)
+        optimizer = torch.optim.Adam(self.parameters(), lr=2e-5, weight_decay=configs.WEIGHT_DECAY)
         return {'optimizer': optimizer}
 
     def _calc_map(self, x, y, pred):
         self.anchor_boxes = self.anchor_boxes.to(self.device)
-        exist_mask = pred[...,0:1]
+        exist_mask = torch.round(torch.sigmoid(pred[...,4:5]))
         cell_idx = torch.arange(13,device=self.device)
-        bx = exist_mask*torch.sigmoid(pred[...,-4:-3]) + exist_mask*cell_idx.view([1,1,-1,1,1])
-        by = exist_mask*torch.sigmoid(pred[...,-3:-2]) + exist_mask*cell_idx.view([1,-1,1,1,1])
-        bw = exist_mask*self.anchor_boxes[:,2].view([1,1,1,-1,1]) * exist_mask*torch.exp(pred[...,-2:-1])
-        bh = exist_mask*self.anchor_boxes[:,3].view([1,1,1,-1,1]) * exist_mask*torch.exp(pred[...,-1:])
-        pred[...,-4:]=torch.cat([bx,by,bw,bh],dim=-1)
-        pred_boxes, target_boxes = get_bboxesmine(x=x,y=y,predictions=pred,iou_threshold=0.5, threshold=0.4, S=self.S,B=self.B, device=self.device)
+        bx = exist_mask*torch.sigmoid(pred[...,0:1]) + exist_mask*cell_idx.view([1,1,-1,1,1])
+        by = exist_mask*torch.sigmoid(pred[...,1:2]) + exist_mask*cell_idx.view([1,-1,1,1,1])
+        bw = exist_mask*self.anchor_boxes[:,2].view([1,1,1,-1,1]) * exist_mask*torch.exp(pred[...,2:3])
+        bh = exist_mask*self.anchor_boxes[:,3].view([1,1,1,-1,1]) * exist_mask*torch.exp(pred[...,3:4])
+        pred[...,:4]=torch.cat([bx,by,bw,bh],dim=-1)
+        pred_boxes, target_boxes = get_bboxesmine(x=x,y=y,predictions=pred,iou_threshold=0.45, threshold=0.005, S=self.S,B=self.B, device=self.device)
         mean_avg_prec = mAP(pred_boxes,target_boxes,iou_threshold=0.5)
         return mean_avg_prec
 
@@ -238,8 +244,25 @@ class YoloV2Model(pl.LightningModule):
         self.log('valid_mAP', mAP,prog_bar=True)
         return loss
 
-model = YoloV2Model(architechture = [architechture_config1,architechture_config2], split_size=13, num_boxes=5, num_classes=20)
-data = YoloV2DataModule()
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        pred_y = self(x)
+        loss = YoloV2Loss()(pred_y, y, device=self.device,epoch=self.current_epoch)
+        self.log('test_loss', loss, prog_bar=True)
+        mAP= self._calc_map(x.detach(), y.detach(), pred_y.detach())
+        self.log('test_mAP', mAP,prog_bar=True)
+        return loss
 
-trainer = pl.Trainer(gpus=1,overfit_batches=1,max_epochs=1000)
-trainer.fit(model,datamodule=data)
+if __name__ == "__main__":    
+    model = YoloV2Model(architechture = [architechture_config1,architechture_config2], split_size=13, num_boxes=5, num_classes=20)
+    data = YoloV2DataModule()
+    for p in model.darknet_before_skip.parameters():
+        p.requires_grad = False
+    for p in model.darknet_after_skip.parameters():
+        p.requires_grad = False
+    for p in model.middle.parameters():
+        p.requires_grad = False
+    for p in model.conv_end1.parameters():
+        p.requires_grad = False
+    trainer = pl.Trainer(gpus=1,max_epochs=10)
+    trainer.fit(model,datamodule=data)
