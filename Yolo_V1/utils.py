@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 from collections import Counter
-from torchvision.ops.boxes import batched_nms,box_iou
+from torchvision.ops.boxes import batched_nms, box_iou
+
 
 def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     """
@@ -48,6 +49,8 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     box2_area = abs((box2_x2 - box2_x1) * (box2_y2 - box2_y1))
 
     return intersection / (box1_area + box2_area - intersection + 1e-6)
+
+
 def convert_cellboxes(predictions, S, device):
     """
     Converts bounding boxes output from Yolo with
@@ -65,8 +68,10 @@ def convert_cellboxes(predictions, S, device):
 
     bboxes1 = predictions[..., 21:25]
     bboxes2 = predictions[..., 26:30]
-    scores = torch.cat((predictions[..., 20].unsqueeze(0), predictions[..., 25].unsqueeze(0)), dim=0)
-    
+    scores = torch.cat(
+        (predictions[..., 20].unsqueeze(0), predictions[..., 25].unsqueeze(0)), dim=0
+    )
+
     best_box = scores.argmax(0).unsqueeze(-1)
     best_boxes = bboxes1 * (1 - best_box) + best_box * bboxes2
     cell_indices = torch.arange(7).repeat(batch_size, 7, 1).unsqueeze(-1).to(device)
@@ -76,9 +81,13 @@ def convert_cellboxes(predictions, S, device):
 
     converted_bboxes = torch.cat((x, y, w_y), dim=-1)
     predicted_class = predictions[..., :20].argmax(-1).unsqueeze(-1)
-    best_confidence = torch.max(predictions[..., 20], predictions[..., 25]).unsqueeze(-1)
+    best_confidence = torch.max(predictions[..., 20], predictions[..., 25]).unsqueeze(
+        -1
+    )
 
-    converted_preds = torch.cat((predicted_class.float(), best_confidence, converted_bboxes), dim=-1)
+    converted_preds = torch.cat(
+        (predicted_class.float(), best_confidence, converted_bboxes), dim=-1
+    )
     return converted_preds
 
 
@@ -86,8 +95,10 @@ def calculate_ap(precisions, recalls):
     precisions = torch.cat((torch.tensor([1]), precisions))
     recalls = torch.cat((torch.tensor([0]), recalls))
     return torch.trapz(precisions, recalls)
+
+
 def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
-    if len(pred_boxes)==0 or len(true_boxes) == 0:
+    if len(pred_boxes) == 0 or len(true_boxes) == 0:
         return 0
     # list storing all AP for respective classes
     average_precisions = []
@@ -97,26 +108,29 @@ def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
     # used for numerical stability later on
     epsilon = 1e-10
     for c in range(num_classes):
-        detections = pred_boxes[pred_boxes[:,1]==c]
-        ground_truths = true_boxes[true_boxes[:,1]==c]
-        amount_bboxes = Counter(ground_truths[:,0].int().tolist())
+        detections = pred_boxes[pred_boxes[:, 1] == c]
+        ground_truths = true_boxes[true_boxes[:, 1] == c]
+        amount_bboxes = Counter(ground_truths[:, 0].int().tolist())
         for key, val in amount_bboxes.items():
             amount_bboxes[key] = torch.zeros(val)
-        detections = sorted(detections,key=lambda x: x[2], reverse=True)
+        detections = sorted(detections, key=lambda x: x[2], reverse=True)
         TP = torch.zeros((len(detections)))
         FP = torch.zeros((len(detections)))
         total_true_bboxes = len(ground_truths)
-        
+
         # If none exists for this class then we can safely skip
         if total_true_bboxes == 0:
             continue
         for detection_idx, detection in enumerate(detections):
-            ground_truth_img = ground_truths[ground_truths[:,0] == detection[0]]
+            ground_truth_img = ground_truths[ground_truths[:, 0] == detection[0]]
             num_gts = len(ground_truth_img)
-            if num_gts==0:
+            if num_gts == 0:
                 best_iou = 0
             else:
-                ious = box_iou(yolo_to_normal(detection[-4:].unsqueeze(0)), yolo_to_normal(ground_truth_img[:,-4:]))
+                ious = box_iou(
+                    yolo_to_normal(detection[-4:].unsqueeze(0)),
+                    yolo_to_normal(ground_truth_img[:, -4:]),
+                )
                 best_iou, best_gt_idx = ious.max(1)
                 best_iou, best_gt_idx = best_iou[0], best_gt_idx[0]
             if best_iou > iou_threshold:
@@ -138,6 +152,7 @@ def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
         average_precisions.append(calculate_ap(precisions, recalls))
     return sum(average_precisions) / len(average_precisions)
 
+
 def yolo_to_normal(boxes):
     """
     Converts [Xmid,Ymid,W,H] format to [Xmin,Ymin,Xmax,Ymax]
@@ -146,36 +161,53 @@ def yolo_to_normal(boxes):
     returns:
      boxes: N x [Xmin,Ymin,Xmax,Ymax]
     """
-    Xmid, Ymid, W, H = [boxes[:,i] for i in range(4)]
-    #Didn't add 1 
-    Xmin = Xmid - (W/2)
-    Ymin = Ymid - (H/2)
-    Xmax = Xmid + (W/2)
-    Ymax = Ymid + (H/2)
-    return torch.stack([Xmin,Ymin,Xmax,Ymax],dim=-1)
+    Xmid, Ymid, W, H = [boxes[:, i] for i in range(4)]
+    # Didn't add 1
+    Xmin = Xmid - (W / 2)
+    Ymin = Ymid - (H / 2)
+    Xmax = Xmid + (W / 2)
+    Ymax = Ymid + (H / 2)
+    return torch.stack([Xmin, Ymin, Xmax, Ymax], dim=-1)
 
-def get_bboxesmine(x,y,predictions,
-    iou_threshold,
-    threshold,
-    S,device):
+
+def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, device):
     all_pred_boxes = []
     all_true_boxes = []
 
-    true_bboxes = convert_cellboxes(y,S,device).reshape(y.shape[0], S * S, -1)
-    bboxes = convert_cellboxes(predictions,S,device).reshape(predictions.shape[0], S * S, -1)
+    true_bboxes = convert_cellboxes(y, S, device).reshape(y.shape[0], S * S, -1)
+    bboxes = convert_cellboxes(predictions, S, device).reshape(
+        predictions.shape[0], S * S, -1
+    )
     train_idx = 0
     for idx in range(len(x)):
-        chosen_bboxes = bboxes[idx,bboxes[idx,:,1]>threshold]
-        if len(chosen_bboxes)==0:
+        chosen_bboxes = bboxes[idx, bboxes[idx, :, 1] > threshold]
+        if len(chosen_bboxes) == 0:
             continue
-        bboxes_idx, bboxes_conf, bboxes_alone = chosen_bboxes[:,0], chosen_bboxes[:,1], chosen_bboxes[:,2:]
-        nms_boxes_idxs = batched_nms(boxes=yolo_to_normal(bboxes_alone), scores=bboxes_conf,idxs=bboxes_idx,iou_threshold=iou_threshold)
+        bboxes_idx, bboxes_conf, bboxes_alone = (
+            chosen_bboxes[:, 0],
+            chosen_bboxes[:, 1],
+            chosen_bboxes[:, 2:],
+        )
+        nms_boxes_idxs = batched_nms(
+            boxes=yolo_to_normal(bboxes_alone),
+            scores=bboxes_conf,
+            idxs=bboxes_idx,
+            iou_threshold=iou_threshold,
+        )
         nms_boxes = chosen_bboxes[nms_boxes_idxs]
-        idx_arr = torch.repeat_interleave(torch.tensor(idx),torch.tensor(len(nms_boxes))).unsqueeze(1).to(device)
-        nms_boxes = torch.cat([idx_arr, nms_boxes],dim=1)
-        true_bboxes2 = true_bboxes[idx,true_bboxes[idx,:,1]>threshold]
-        idx_arr = torch.repeat_interleave(torch.tensor(idx),torch.tensor(len(true_bboxes2))).unsqueeze(1).to(device)
-        true_bboxes2 = torch.cat([idx_arr, true_bboxes2],dim=1)
+        idx_arr = (
+            torch.repeat_interleave(torch.tensor(idx), torch.tensor(len(nms_boxes)))
+            .unsqueeze(1)
+            .to(device)
+        )
+        nms_boxes = torch.cat([idx_arr, nms_boxes], dim=1)
+        true_bboxes2 = true_bboxes[idx, true_bboxes[idx, :, 1] > threshold]
+        idx_arr = (
+            torch.repeat_interleave(torch.tensor(idx), torch.tensor(len(true_bboxes2)))
+            .unsqueeze(1)
+            .to(device)
+        )
+        true_bboxes2 = torch.cat([idx_arr, true_bboxes2], dim=1)
         all_pred_boxes.append(nms_boxes)
         all_true_boxes.append(true_bboxes2)
         train_idx += 1
@@ -184,7 +216,7 @@ def get_bboxesmine(x,y,predictions,
     else:
         x = []
     if all_true_boxes:
-        y = torch.cat(all_true_boxes).tolist() 
+        y = torch.cat(all_true_boxes).tolist()
     else:
         y = []
-    return x,y
+    return x, y

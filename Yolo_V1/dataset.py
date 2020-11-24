@@ -1,4 +1,3 @@
-
 """
 Creates a Pytorch dataset to load the Pascal VOC dataset
 """
@@ -14,14 +13,36 @@ from albumentations.pytorch.transforms import ToTensor
 from torch.utils.data import DataLoader
 import configs
 
-output_labels = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
-                 "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa",
-                 "train", "tvmonitor"]
+output_labels = [
+    "aeroplane",
+    "bicycle",
+    "bird",
+    "boat",
+    "bottle",
+    "bus",
+    "car",
+    "cat",
+    "chair",
+    "cow",
+    "diningtable",
+    "dog",
+    "horse",
+    "motorbike",
+    "person",
+    "pottedplant",
+    "sheep",
+    "sofa",
+    "train",
+    "tvmonitor",
+]
+
+
 def pathify(path):
     if type(path) == str:
         return Path(path)
     else:
         return path
+
 
 class VOCDataset(torch.utils.data.Dataset):
     def __init__(self, img_source_files, S=7, B=2, C=20, transform=None):
@@ -32,14 +53,16 @@ class VOCDataset(torch.utils.data.Dataset):
         self.C = C
         self.image_paths = []
         self.label_paths = []
-        if type(self.source_files)==str:
+        if type(self.source_files) == str:
             self.source_files = [pathify(self.source_files)]
-        elif type(self.source_files)==list:
+        elif type(self.source_files) == list:
             self.source_files = [pathify(file) for file in self.source_files]
         for source_file in self.source_files:
             self.image_paths += Path(source_file).read_text().strip().split("\n")
         self.image_paths = [pathify(p) for p in self.image_paths]
-        self.label_paths = [p.parent.with_name("labels")/f"{p.stem}.txt" for p in self.image_paths]  
+        self.label_paths = [
+            p.parent.with_name("labels") / f"{p.stem}.txt" for p in self.image_paths
+        ]
 
     def __len__(self):
         return len(self.image_paths)
@@ -61,11 +84,13 @@ class VOCDataset(torch.utils.data.Dataset):
         boxes = torch.tensor(boxes)
 
         if self.transform:
-            output_labels_list = boxes[:,0].int().tolist()
-            if type(output_labels_list)==str:
+            output_labels_list = boxes[:, 0].int().tolist()
+            if type(output_labels_list) == str:
                 output_labels_list = [output_labels_list]
-            transformed_items = self.transform(image = image, bboxes = boxes[:,1:], class_labels=output_labels_list)
-            image = transformed_items["image"]/255.
+            transformed_items = self.transform(
+                image=image, bboxes=boxes[:, 1:], class_labels=output_labels_list
+            )
+            image = transformed_items["image"] / 255.0
             boxes = transformed_items["bboxes"]
             class_labels = transformed_items["class_labels"]
 
@@ -102,7 +127,9 @@ class VOCDataset(torch.utils.data.Dataset):
                 label_matrix[i, j, 20] = 1
 
                 # Box coordinates
-                box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
+                box_coordinates = torch.tensor(
+                    [x_cell, y_cell, width_cell, height_cell]
+                )
                 label_matrix[i, j, 21:25] = box_coordinates
 
                 # Set one hot encoding for class_label
@@ -114,26 +141,43 @@ class VOCDataset(torch.utils.data.Dataset):
 class YoloV1DataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         BASE_PATH = pathify(configs.BASE_DIR)
-        self.train_transform = A.Compose([A.Resize(width=448, height=448),
-                                    A.ShiftScaleRotate(shift_limit=0.2,scale_limit=0.2,rotate_limit=0),ToTensor()],
-                            bbox_params=A.BboxParams(format='yolo',label_fields=['class_labels']))
-        self.test_transform = A.Compose([A.Resize(width=448, height=448),ToTensor()],
-                                    bbox_params=A.BboxParams(format='yolo',label_fields=['class_labels']))
-        if stage == 'fit' or stage is None:
-            train_files = [BASE_PATH/"2007_train.txt",BASE_PATH/"2012_train.txt"]
-            val_files = [BASE_PATH/"2007_val.txt",BASE_PATH/"2012_val.txt"]
-            self.train_dataset = VOCDataset(train_files,transform=self.train_transform)
-            self.val_dataset = VOCDataset(val_files,transform=self.test_transform)
+        self.train_transform = A.Compose(
+            [
+                A.Resize(width=448, height=448),
+                A.ShiftScaleRotate(shift_limit=0.2, scale_limit=0.2, rotate_limit=0),
+                ToTensor(),
+            ],
+            bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]),
+        )
+        self.test_transform = A.Compose(
+            [A.Resize(width=448, height=448), ToTensor()],
+            bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]),
+        )
+        if stage == "fit" or stage is None:
+            train_files = [BASE_PATH / "2007_train.txt", BASE_PATH / "2012_train.txt"]
+            val_files = [BASE_PATH / "2007_val.txt", BASE_PATH / "2012_val.txt"]
+            self.train_dataset = VOCDataset(train_files, transform=self.train_transform)
+            self.val_dataset = VOCDataset(val_files, transform=self.test_transform)
 
-        if stage == 'test':
-            test_files = [BASE_PATH/"2007_test.txt"]
+        if stage == "test":
+            test_files = [BASE_PATH / "2007_test.txt"]
             self.test_dataset = VOCDataset(test_files, transform=self.test_transform)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=configs.BATCH_SIZE, num_workers=configs.NUM_WORKERS, pin_memory=configs.PIN_MEMORY, drop_last=True)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=configs.BATCH_SIZE,
+            num_workers=configs.NUM_WORKERS,
+            pin_memory=configs.PIN_MEMORY,
+            drop_last=True,
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=configs.BATCH_SIZE, pin_memory=configs.PIN_MEMORY)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=configs.BATCH_SIZE,
+            pin_memory=configs.PIN_MEMORY,
+        )
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=configs.BATCH_SIZE)
