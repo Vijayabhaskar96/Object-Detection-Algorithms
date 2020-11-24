@@ -8,6 +8,8 @@ import PIL
 from torchvision.ops.boxes import batched_nms
 from torchvision.transforms import ToTensor
 import random
+import configs
+from pathlib import Path
 
 
 class InferenceModel:
@@ -202,12 +204,13 @@ class InferenceModel:
             fill=color,
             stroke_fill=(255, 255, 255),
             stroke_width=2,
-            font=ImageFont.truetype("arial"),
+            font=ImageFont.truetype("../arial.ttf"),
         )
 
 
 filepath = "pretrained_yolov2-voc-model_weights.pth"
 inference_pipeline = InferenceModel(weights_path=filepath)
 result_pil_image, bboxes = inference_pipeline.predict(
-    r"/content/VOCdevkit/VOC2007/JPEGImages/000017.jpg"
+    Path(configs.BASE_DIR) / "VOCdevkit/VOC2007/JPEGImages/000017.jpg"
 )
+result_pil_image.save("result.png")

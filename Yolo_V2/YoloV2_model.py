@@ -345,13 +345,5 @@ if __name__ == "__main__":
         num_classes=20,
     )
     data = YoloV2DataModule()
-    for p in model.darknet_before_skip.parameters():
-        p.requires_grad = False
-    for p in model.darknet_after_skip.parameters():
-        p.requires_grad = False
-    for p in model.middle.parameters():
-        p.requires_grad = False
-    for p in model.conv_end1.parameters():
-        p.requires_grad = False
     trainer = pl.Trainer(gpus=1, max_epochs=10)
     trainer.fit(model, datamodule=data)
