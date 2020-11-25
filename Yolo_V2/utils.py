@@ -4,7 +4,7 @@ from collections import Counter
 from torchvision.ops.boxes import batched_nms, box_iou
 from collections import namedtuple
 
-
+# Source: https://github.com/aladdinpersson/Machine-Learning-Collection/
 def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     """
     Calculates intersection over union
@@ -52,6 +52,7 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     return intersection / (box1_area + box2_area - intersection + 1e-6)
 
 
+# Modified from Source for both AP: https://github.com/rafaelpadilla/Object-Detection-Metrics
 def ElevenPointInterpolatedAP(rec, pre):
     """
     Calcualtes 11-point interpolated Average Precision
@@ -124,12 +125,10 @@ def AllPointInterpolatedAP(rec, prec):
 
 
 def calculate_ap(precisions, recalls):
-    # precisions = torch.cat((torch.tensor([1]), precisions))
-    # recalls = torch.cat((torch.tensor([0]), recalls))
-    # return torch.trapz(precisions, recalls)
     return ElevenPointInterpolatedAP(recalls, precisions)
 
 
+# Modified code from Source: https://github.com/aladdinpersson/Machine-Learning-Collection/
 def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
     if len(pred_boxes) == 0 or len(true_boxes) == 0:
         return 0
@@ -211,14 +210,13 @@ def cells_to_boxes(cells, S, B):
     return converted_preds
 
 
-def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, B, device):
+def get_bboxes(x, y, predictions, iou_threshold, threshold, S, B, device):
     all_pred_boxes = []
     all_true_boxes = []
 
     for idx in range(len(x)):
         true_bboxes = cells_to_boxes(y[idx], S, B)
         bboxes = cells_to_boxes(predictions[idx], S, B)
-        # ious = intersection_over_union(predictions[idx][...,:4],y[idx][...,:4].float()).flatten()
         bboxes[:, 1] = torch.sigmoid(bboxes[:, 1])
         bboxes = bboxes[bboxes[:, 1] > threshold]
         bboxes_idx, bboxes_conf, bboxes_alone = (
@@ -241,7 +239,6 @@ def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, B, device):
         nms_boxes = torch.cat([idx_arr, nms_boxes], dim=1)
 
         true_bboxes2 = true_bboxes[true_bboxes[:, 0] > threshold]
-        # idx_arr = torch.repeat_interleave(torch.tensor(idx),torch.tensor(len(true_bboxes2))).unsqueeze(1).to(device)
         idx_arr = torch.full(
             size=(len(true_bboxes2), 1), fill_value=float(idx), device=device
         )
@@ -259,20 +256,25 @@ def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, B, device):
     return x, y
 
 
+# Code Source: https://github.com/experiencor/keras-yolo2/blob/master/utils.py
 class WeightReader:
-    def __init__(self, weight_file):
-        self.offset = 5
+    def __init__(self, weight_file, initial_offset):
+        self.offset = initial_offset
+        self.initial_offset = initial_offset
         self.all_weights = np.fromfile(weight_file, dtype=np.float32)
-        print(f"Weights length:{len(self.all_weights)} offset:{self.offset}")
+        print(
+            f"Weights length:{len(self.all_weights)} Initial offset:{self.initial_offset}"
+        )
 
     def read_bytes(self, size):
         self.offset = self.offset + size
         return self.all_weights[self.offset - size : self.offset]
 
     def reset(self):
-        self.offset = 5
+        self.offset = self.initial_offset
 
 
+# Modiefied from Original Source: https://github.com/ayooshkathuria/YOLO_v3_tutorial_from_scratch
 def load_conv_block(block, wr, with_bn=True):
     if with_bn:
         num_bn_biases = block.batchnorm.bias.numel()

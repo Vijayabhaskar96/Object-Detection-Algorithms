@@ -45,7 +45,7 @@ model = YoloV2_model.YoloV2Model(
     num_classes=20,
 )
 
-weight_reader = WeightReader("yolov2-voc.weights")
+weight_reader = WeightReader("yolov2-voc.weights", initial_offset=5)
 
 
 def apply_weights_on_seq(seq_block):

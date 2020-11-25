@@ -82,7 +82,8 @@ class InferenceModel:
 
     def yolo_to_normal(self, boxes):
         Xmid, Ymid, W, H = [boxes[:, i] for i in range(4)]
-        # Didn't add 1
+        # Didn't add 1, because we dont have image height and width here.
+        # doesn't matter much
         Xmin = Xmid - (W / 2)
         Ymin = Ymid - (H / 2)
         Xmax = Xmid + (W / 2)

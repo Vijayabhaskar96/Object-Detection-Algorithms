@@ -35,7 +35,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from dataset import YoloV2DataModule
-from utils import get_bboxesmine, intersection_over_union, mAP
+from utils import get_bboxes, intersection_over_union, mAP
 import configs
 import pytorch_lightning as pl
 from pytorch_lightning import seed_everything
@@ -157,7 +157,7 @@ class YoloV2Loss(nn.Module):
         return 5 * xy_loss + 5 * wh_loss + obj_loss + no_obj_loss + class_loss
 
 
-# Thanks to Zhenliang He for the code
+# Thanks to Zhenliang He for the code for SpaceToDepth
 # https://discuss.pytorch.org/t/is-there-any-layer-like-tensorflows-space-to-depth-function/3487/15
 class SpaceToDepth(nn.Module):
     def __init__(self, block_size):
@@ -295,7 +295,7 @@ class YoloV2Model(pl.LightningModule):
             * torch.exp(pred[..., 3:4])
         )
         pred[..., :4] = torch.cat([bx, by, bw, bh], dim=-1)
-        pred_boxes, target_boxes = get_bboxesmine(
+        pred_boxes, target_boxes = get_bboxes(
             x=x,
             y=y,
             predictions=pred,
