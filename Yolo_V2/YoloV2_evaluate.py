@@ -67,7 +67,10 @@ for p in model.parameters():
 
 trainer = pl.Trainer(gpus=1, checkpoint_callback=False, max_epochs=10000)
 trainer.test(model, datamodule=data)
-# TODO find and fix why mAP is low with pretrained weights ~0.60s vs 76.8
+# TODO find and fix why mAP is low with pretrained weights ~72 vs 76.8
+# probably because I don't know exactly what the exact threshold is for nms.
+
+# TODO fix low mAP when run on windows machine , probably due to default tensor/array dataypes are different in both OS(32bit vs 64bit)
 
 # save_pretrained_model in pth format
 filepath = "pretrained_yolov2-voc-model_weights.pth"
