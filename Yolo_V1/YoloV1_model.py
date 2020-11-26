@@ -24,38 +24,35 @@
 # PDF available in the next reference repo.
 # * https://github.com/rafaelpadilla/Object-Detection-Metrics/
 
-import os
-
-kaggle_data = {
-    "username": "ENTER_YOUR_KAGGLE_USERNAME_HERE",
-    "key": "ENTER_YOUR_KAGGLE_KEY_HERE",
-}
-os.environ["KAGGLE_USERNAME"] = kaggle_data["username"]
-os.environ["KAGGLE_KEY"] = kaggle_data["key"]
-# !pip install pytorch-lightning
-# !pip install kaggle
-# !pip install --upgrade albumentations
-# !wget https://raw.githubusercontent.com/pjreddie/darknet/master/scripts/voc_label.py
-# !kaggle datasets download -d vijayabhaskar96/pascal-voc-2007-and-2012
-# !unzip pascal-voc-2007-and-2012.zip
-# %run voc_label.py
-
 # +
-import pandas as pd
+# import os
+# kaggle_data = {
+#     "username": "ENTER_YOUR_KAGGLE_USERNAME_HERE",
+#     "key": "ENTER_YOUR_KAGGLE_KEY_HERE",
+# }
+# os.environ["KAGGLE_USERNAME"] = kaggle_data["username"]
+# os.environ["KAGGLE_KEY"] = kaggle_data["key"]
+# # !pip install pytorch-lightning
+# # !pip install kaggle
+# # !pip install --upgrade albumentations
+# # !wget https://raw.githubusercontent.com/pjreddie/darknet/master/scripts/voc_label.py
+# # !kaggle datasets download -d vijayabhaskar96/pascal-voc-2007-and-2012
+# # !unzip pascal-voc-2007-and-2012.zip
+# # %run voc_label.py
+# -
 from collections import namedtuple
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensor
 from dataset import YoloV1DataModule
-from utils import get_bboxesmine, intersection_over_union, mAP
+from utils import get_bboxes, intersection_over_union, mAP
 import configs
 import pytorch_lightning as pl
 from pytorch_lightning import seed_everything
 
 seed_everything(42)
-# -
+
 
 conv_config = namedtuple("ConvConfig", ["kernel_size", "filters", "stride", "pad"])
 maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
@@ -307,7 +304,7 @@ class YoloV1Model(pl.LightningModule):
         return {"optimizer": optimizer}
 
     def _calc_map(self, x, y, pred):
-        pred_boxes, target_boxes = get_bboxesmine(
+        pred_boxes, target_boxes = get_bboxes(
             x=x,
             y=y,
             predictions=pred,
@@ -339,11 +336,10 @@ class YoloV1Model(pl.LightningModule):
         return loss
 
 
-model = YoloV1Model(
-    architechture=architechture_config, split_size=7, num_boxes=2, num_classes=20
-)
-data = YoloV1DataModule()
-trainer = pl.Trainer(
-    gpus=1, overfit_batches=1, checkpoint_callback=False, max_epochs=1000
-)
-trainer.fit(model, datamodule=data)
+if __name__ == "__main__":
+    model = YoloV1Model(
+        architechture=architechture_config, split_size=7, num_boxes=2, num_classes=20
+    )
+    data = YoloV1DataModule()
+    trainer = pl.Trainer(gpus=1, max_epochs=1000)
+    trainer.fit(model, datamodule=data)

@@ -170,7 +170,7 @@ def yolo_to_normal(boxes):
     return torch.stack([Xmin, Ymin, Xmax, Ymax], dim=-1)
 
 
-def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, device):
+def get_bboxes(x, y, predictions, iou_threshold, threshold, S, device):
     all_pred_boxes = []
     all_true_boxes = []
 
@@ -220,3 +220,72 @@ def get_bboxesmine(x, y, predictions, iou_threshold, threshold, S, device):
     else:
         y = []
     return x, y
+
+
+# Code Source: https://github.com/experiencor/keras-yolo2/blob/master/utils.py
+class WeightReader:
+    def __init__(self, weight_file, initial_offset):
+        self.offset = initial_offset
+        self.initial_offset = initial_offset
+        self.all_weights = np.fromfile(weight_file, dtype=np.float32)
+        print(
+            f"Weights length:{len(self.all_weights)} Initial offset:{self.initial_offset}"
+        )
+
+    def read_bytes(self, size):
+        self.offset = self.offset + size
+        return self.all_weights[self.offset - size : self.offset]
+
+    def reset(self):
+        self.offset = self.initial_offset
+
+
+# Modiefied from Original Source: https://github.com/ayooshkathuria/YOLO_v3_tutorial_from_scratch
+def load_conv_block(block, wr, with_bn=True):
+    if with_bn:
+        num_bn_biases = block.batchnorm.bias.numel()
+
+        # Load the weights
+        bn_biases = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_weights = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_running_mean = torch.from_numpy(wr.read_bytes(num_bn_biases))
+        bn_running_var = torch.from_numpy(wr.read_bytes(num_bn_biases))
+
+        # Cast the loaded weights into dims of model weights.
+        bn_biases = bn_biases.view_as(block.batchnorm.bias.data)
+        bn_weights = bn_weights.view_as(block.batchnorm.weight.data)
+        bn_running_mean = bn_running_mean.view_as(block.batchnorm.running_mean)
+        bn_running_var = bn_running_var.view_as(block.batchnorm.running_var)
+
+        # Copy the data to model
+        block.batchnorm.bias.data.copy_(bn_biases)
+        block.batchnorm.weight.data.copy_(bn_weights)
+        block.batchnorm.running_mean.copy_(bn_running_mean)
+        block.batchnorm.running_var.copy_(bn_running_var)
+        # print("Applied Weights for CNNBlock.",wr.offset)
+    else:
+        # DummyBlock to add a fake .conv attribute
+        DummyBlock = namedtuple("DummyBlock", ["conv"])
+        block = DummyBlock(block)
+
+        # Number of biases
+        num_biases = block.conv.bias.numel()
+
+        # Load the weights
+        conv_biases = torch.from_numpy(wr.read_bytes(num_biases))
+
+        # reshape the loaded weights according to the dims of the model weights
+        conv_biases = conv_biases.view_as(block.conv.bias.data)
+
+        # Finally copy the data
+        block.conv.bias.data.copy_(conv_biases)
+        # print("Applied Weights for CNN Layer.",wr.offset)
+
+    # Let us load the weights for the Convolutional layers
+    num_weights = block.conv.weight.numel()
+
+    # Do the same as above for weights
+    conv_weights = torch.from_numpy(wr.read_bytes(num_weights))
+
+    conv_weights = conv_weights.view_as(block.conv.weight.data)
+    block.conv.weight.data.copy_(conv_weights)
