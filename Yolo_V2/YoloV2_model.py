@@ -45,7 +45,7 @@ seed_everything(42)
 
 conv_config = namedtuple("ConvConfig", ["kernel_size", "filters", "stride", "pad"])
 maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
-architechture_config1 = [
+architecture_config1 = [
     conv_config(3, 32, 1, 1),
     maxpool_config(2, 2),
     conv_config(3, 64, 1, 1),
@@ -64,7 +64,7 @@ architechture_config1 = [
     conv_config(1, 256, 1, 0),
     conv_config(3, 512, 1, 1),
 ]
-architechture_config2 = [
+architecture_config2 = [
     maxpool_config(2, 2),
     conv_config(3, 1024, 1, 1),
     conv_config(1, 512, 1, 0),
@@ -196,17 +196,17 @@ class CNNBlock(nn.Module):
 
 
 class YoloV2Model(pl.LightningModule):
-    def __init__(self, architechture=None, split_size=13, num_boxes=5, num_classes=20):
+    def __init__(self, architecture=None, split_size=13, num_boxes=5, num_classes=20):
         super(YoloV2Model, self).__init__()
         self.S = split_size
         self.B = num_boxes
         self.C = num_classes
-        self.darknet_before_skip = self._create_conv(architechture[0], in_channels=3)
+        self.darknet_before_skip = self._create_conv(architecture[0], in_channels=3)
         self.middle = CNNBlock(
             in_channels=512, filters=64, kernel_size=1, stride=1, pad=0
         )
         self.space_to_depth = SpaceToDepth(block_size=2)
-        self.darknet_after_skip = self._create_conv(architechture[1], in_channels=512)
+        self.darknet_after_skip = self._create_conv(architecture[1], in_channels=512)
         self.conv_end1 = CNNBlock(
             in_channels=1280, filters=1024, kernel_size=3, stride=1, pad=1
         )
@@ -339,7 +339,7 @@ class YoloV2Model(pl.LightningModule):
 
 if __name__ == "__main__":
     model = YoloV2Model(
-        architechture=[architechture_config1, architechture_config2],
+        architecture=[architecture_config1, architecture_config2],
         split_size=13,
         num_boxes=5,
         num_classes=20,

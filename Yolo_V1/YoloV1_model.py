@@ -57,7 +57,7 @@ seed_everything(42)
 conv_config = namedtuple("ConvConfig", ["kernel_size", "filters", "stride", "pad"])
 maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
 repeat_block = namedtuple("Repeat", ["blocks", "n"])
-architechture_config = [
+architecture_config = [
     conv_config(7, 64, 2, 3),
     maxpool_config(2, 2),
     conv_config(3, 192, 1, 1),
@@ -213,14 +213,14 @@ class YoloV1Model(pl.LightningModule):
     def __init__(
         self,
         in_channels=3,
-        architechture=None,
+        architecture=None,
         split_size=7,
         num_boxes=2,
         num_classes=20,
     ):
         super(YoloV1Model, self).__init__()
         self.in_channels = in_channels
-        self.darknet = self._create_conv(architechture)
+        self.darknet = self._create_conv(architecture)
         self.fcs = self._create_fcs(split_size, num_boxes, num_classes)
         self.train_transform = A.Compose(
             [
@@ -338,7 +338,7 @@ class YoloV1Model(pl.LightningModule):
 
 if __name__ == "__main__":
     model = YoloV1Model(
-        architechture=architechture_config, split_size=7, num_boxes=2, num_classes=20
+        architecture=architecture_config, split_size=7, num_boxes=2, num_classes=20
     )
     data = YoloV1DataModule()
     trainer = pl.Trainer(gpus=1, max_epochs=1000)

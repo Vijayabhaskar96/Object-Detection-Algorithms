@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 
 conv_config = namedtuple("ConvConfig", ["kernel_size", "filters", "stride", "pad"])
 maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
-architechture_config1 = [
+architecture_config1 = [
     conv_config(3, 32, 1, 1),
     maxpool_config(2, 2),
     conv_config(3, 64, 1, 1),
@@ -26,7 +26,7 @@ architechture_config1 = [
     conv_config(1, 256, 1, 0),
     conv_config(3, 512, 1, 1),
 ]
-architechture_config2 = [
+architecture_config2 = [
     maxpool_config(2, 2),
     conv_config(3, 1024, 1, 1),
     conv_config(1, 512, 1, 0),
@@ -39,7 +39,7 @@ architechture_config2 = [
 DummyBlock = namedtuple("DummyBlock", ["conv"])
 
 model = YoloV2_model.YoloV2Model(
-    architechture=[architechture_config1, architechture_config2],
+    architecture=[architecture_config1, architecture_config2],
     split_size=13,
     num_boxes=5,
     num_classes=20,

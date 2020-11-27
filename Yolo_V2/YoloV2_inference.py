@@ -18,7 +18,7 @@ class InferenceModel:
             "ConvConfig", ["kernel_size", "filters", "stride", "pad"]
         )
         maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
-        architechture_config1 = [
+        architecture_config1 = [
             conv_config(3, 32, 1, 1),
             maxpool_config(2, 2),
             conv_config(3, 64, 1, 1),
@@ -37,7 +37,7 @@ class InferenceModel:
             conv_config(1, 256, 1, 0),
             conv_config(3, 512, 1, 1),
         ]
-        architechture_config2 = [
+        architecture_config2 = [
             maxpool_config(2, 2),
             conv_config(3, 1024, 1, 1),
             conv_config(1, 512, 1, 0),
@@ -47,7 +47,7 @@ class InferenceModel:
             conv_config(3, 1024, 1, 1),
             conv_config(3, 1024, 1, 1),
         ]
-        self.architechture = [architechture_config1, architechture_config2]
+        self.architecture = [architecture_config1, architecture_config2]
         self.output_labels = [
             "aeroplane",
             "bicycle",
@@ -71,7 +71,7 @@ class InferenceModel:
             "tvmonitor",
         ]
         self.model = YoloV2_model.YoloV2Model(
-            architechture=self.architechture, split_size=S, num_boxes=B, num_classes=C
+            architecture=self.architecture, split_size=S, num_boxes=B, num_classes=C
         )
         self.load_weigts(weights_path)
 

@@ -9,7 +9,7 @@ import numpy as np
 conv_config = namedtuple("ConvConfig", ["kernel_size", "filters", "stride", "pad"])
 maxpool_config = namedtuple("MaxPoolConfig", ["kernel_size", "stride"])
 repeat_block = namedtuple("Repeat", ["blocks", "n"])
-architechture_config = [
+architecture_config = [
     conv_config(7, 64, 2, 3),
     maxpool_config(2, 2),
     conv_config(3, 192, 1, 1),
@@ -32,7 +32,7 @@ architechture_config = [
 DummyBlock = namedtuple("DummyBlock", ["conv"])
 
 model = YoloV1_model.YoloV1Model(
-    architechture=architechture_config,
+    architecture=architecture_config,
     split_size=7,
     num_boxes=2,
     num_classes=20,
