@@ -6,5 +6,5 @@ __pycache__
 *.ckpt
 .vscode
 *.pth
-Yolo_V2/Untitled.ipynb
+Untitled.ipynb
 lightning_logs
