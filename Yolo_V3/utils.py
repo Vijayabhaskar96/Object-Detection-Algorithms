@@ -217,7 +217,7 @@ def get_bboxes(y, predictions, iou_threshold, threshold, S, B, device):
     for idx in range(len(y[0])):
         all_true_bboxes = []
         all_bboxes = []
-        for i, grid_size in enumerate(S): 
+        for i, grid_size in enumerate(S):
             true_bboxes = cells_to_boxes(y[i][idx], grid_size, B)
             bboxes = cells_to_boxes(predictions[i][idx], grid_size, B)
             if len(bboxes) == 0:
@@ -226,15 +226,15 @@ def get_bboxes(y, predictions, iou_threshold, threshold, S, B, device):
             bboxes = bboxes[bboxes[:, 1] > threshold]
             all_true_bboxes.append(true_bboxes)
             all_bboxes.append(bboxes)
-        if len(all_bboxes)==0:
+        if len(all_bboxes) == 0:
             continue
         all_true_bboxes = torch.cat(all_true_bboxes)
         all_bboxes = torch.cat(all_bboxes)
         bboxes_idx, bboxes_conf, bboxes_alone = (
-                all_bboxes[:, 0],
-                all_bboxes[:, 1],
-                all_bboxes[:, 2:],
-            )
+            all_bboxes[:, 0],
+            all_bboxes[:, 1],
+            all_bboxes[:, 2:],
+        )
         nms_boxes_idxs = batched_nms(
             boxes=yolo_to_normal(bboxes_alone),
             scores=bboxes_conf,

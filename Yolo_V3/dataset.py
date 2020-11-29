@@ -46,26 +46,21 @@ def pathify(path):
 
 
 class VOCDataset(torch.utils.data.Dataset):
-    def __init__(self, img_source_files, S=13, B=5, C=20, transform=None):
+    def __init__(self, img_source_files, transform=None):
         self.source_files = img_source_files
         self.transform = transform
-        self.S = S
-        self.B = B
-        self.C = C
-        self.anchor_boxes = (
-            torch.tensor(
-                [
-                    [0, 0, 10, 13],
-                    [0, 0, 16, 30],
-                    [0, 0, 33, 23],
-                    [0, 0, 30, 61],
-                    [0, 0, 62, 45],
-                    [0, 0, 59, 119],
-                    [0, 0, 116, 90],
-                    [0, 0, 156, 198],
-                    [0, 0, 373, 326],
-                ]
-            )
+        self.anchor_boxes = torch.tensor(
+            [
+                [0, 0, 10, 13],
+                [0, 0, 16, 30],
+                [0, 0, 33, 23],
+                [0, 0, 30, 61],
+                [0, 0, 62, 45],
+                [0, 0, 59, 119],
+                [0, 0, 116, 90],
+                [0, 0, 156, 198],
+                [0, 0, 373, 326],
+            ]
         )
         self.image_paths = []
         self.label_paths = []
@@ -84,17 +79,19 @@ class VOCDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.image_paths)
 
-    def _generate_label_matrix(self,S,boxes,class_labels,anchor_boxes):
-        label_matrix = torch.zeros((S, S, len(anchor_boxes), 1 + self.C + 4), dtype=torch.float64)
+    def _generate_label_matrix(self, S, boxes, class_labels, anchor_boxes):
+        label_matrix = torch.zeros(
+            (S, S, len(anchor_boxes), 5 + configs.NUM_CLASSES), dtype=torch.float64
+        )
         for box, class_label in zip(boxes, class_labels):
 
             x, y, width, height = box
             class_label = int(class_label)
 
             # i,j represents the cell row and cell column
-            i, j = int(13 * x), int(13 * y)
-            x_cell, y_cell = 13 * x, 13 * y
-            
+            i, j = int(S * x), int(S * y)
+            x_cell, y_cell = S * x, S * y
+
             xmin = x - width / 2
             ymin = y - height / 2
             xmax = xmin + width
@@ -106,7 +103,7 @@ class VOCDataset(torch.utils.data.Dataset):
             anchor_boxes[:, 3] = ymin + anchor_boxes[:, 3] / 2
 
             width_cell, height_cell = (width * S, height * S)
-            
+
             # Assign bbox to max Anchor box overlap
             ious = box_iou(
                 anchor_boxes,
@@ -153,10 +150,16 @@ class VOCDataset(torch.utils.data.Dataset):
             class_labels = transformed_items["class_labels"]
 
         # Convert To Cells
-        # 13 x 13 x Num of Anchor box x ([x,y,w,h],class_confidence,...Class prediction...)
-        small_label_matrix = self._generate_label_matrix(13,boxes,class_labels,copy.deepcopy(self.anchor_boxes)[6:9]/(416/13))
-        medium_label_matrix = self._generate_label_matrix(26,boxes,class_labels,copy.deepcopy(self.anchor_boxes)[3:6]/(416/26))
-        large_label_matrix = self._generate_label_matrix(52,boxes,class_labels,copy.deepcopy(self.anchor_boxes)[:3]/(416/52))
+        # S x S x Num of Anchor box x ([x,y,w,h],class_confidence,...Class prediction...)
+        small_label_matrix = self._generate_label_matrix(
+            13, boxes, class_labels, copy.deepcopy(self.anchor_boxes)[6:9] / (416 / 13)
+        )
+        medium_label_matrix = self._generate_label_matrix(
+            26, boxes, class_labels, copy.deepcopy(self.anchor_boxes)[3:6] / (416 / 26)
+        )
+        large_label_matrix = self._generate_label_matrix(
+            52, boxes, class_labels, copy.deepcopy(self.anchor_boxes)[:3] / (416 / 52)
+        )
 
         return image, (small_label_matrix, medium_label_matrix, large_label_matrix)
 
