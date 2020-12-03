@@ -45,7 +45,7 @@ def create_labels(set_name):
     filename_to_bbox = defaultdict(list)
     for row in final_df.iterrows():
         bbox = convert(size=(row[1]["width"], row[1]["height"]), box=row[1]["bbox"])
-        if any(np.array(row[1]["bbox"])<1):
+        if any(np.array(row[1]["bbox"]) < 1):
             continue
         cat = old_ids.index(row[1]["category_id"])
         filename_to_bbox[row[1]["file_name"]].append([cat] + list(bbox))
