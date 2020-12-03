@@ -44,7 +44,10 @@ def pathify(path):
     else:
         return path
 
+
 BASE_PATH = pathify(configs.BASE_DIR)
+
+
 class COCODataset(torch.utils.data.Dataset):
     def __init__(self, img_source_files, set_type, transform=None):
         self.source_files = img_source_files
@@ -72,8 +75,10 @@ class COCODataset(torch.utils.data.Dataset):
             self.source_files = [pathify(file) for file in self.source_files]
         for source_file in self.source_files:
             self.image_paths += Path(source_file).read_text().strip().split("\n")
-        self.label_paths = [BASE_PATH/"labels"/p for p in self.image_paths]
-        self.image_paths = [(BASE_PATH/set_type/p).with_suffix(".jpg") for p in self.image_paths]
+        self.label_paths = [BASE_PATH / "labels" / p for p in self.image_paths]
+        self.image_paths = [
+            (BASE_PATH / set_type / p).with_suffix(".jpg") for p in self.image_paths
+        ]
 
     def __len__(self):
         return len(self.image_paths)
@@ -128,7 +133,13 @@ class COCODataset(torch.utils.data.Dataset):
         with open(label_path) as f:
             for label in f.readlines():
                 class_label, x, y, width, height = label.strip().split(",")
-                class_label, x, y, width, height = int(class_label), float(x), float(y), float(width), float(height)
+                class_label, x, y, width, height = (
+                    int(class_label),
+                    float(x),
+                    float(y),
+                    float(width),
+                    float(height),
+                )
                 boxes.append([class_label, x, y, width, height])
 
         image = cv2.imread(str(img_path))
@@ -179,12 +190,18 @@ class YoloV3DataModule(pl.LightningDataModule):
             train_files = [BASE_PATH / "train2017.txt"]
             val_files = [BASE_PATH / "val2017.txt"]
             # self.train_dataset = COCODataset(train_files, "train2017", transform=self.test_transform)
-            self.train_dataset = COCODataset(val_files, "val2017", transform=self.test_transform)
-            self.val_dataset = COCODataset(val_files, "val2017", transform=self.test_transform)
+            self.train_dataset = COCODataset(
+                val_files, "val2017", transform=self.test_transform
+            )
+            self.val_dataset = COCODataset(
+                val_files, "val2017", transform=self.test_transform
+            )
 
         if stage == "test":
             test_files = [BASE_PATH / "val2017.txt"]
-            self.test_dataset = COCODataset(test_files, "val2017", transform=self.test_transform)
+            self.test_dataset = COCODataset(
+                test_files, "val2017", transform=self.test_transform
+            )
 
     def train_dataloader(self):
         return DataLoader(
