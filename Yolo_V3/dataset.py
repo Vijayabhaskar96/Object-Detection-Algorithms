@@ -14,29 +14,6 @@ from torch.utils.data import DataLoader
 import configs
 import copy
 
-output_labels = [
-    "aeroplane",
-    "bicycle",
-    "bird",
-    "boat",
-    "bottle",
-    "bus",
-    "car",
-    "cat",
-    "chair",
-    "cow",
-    "diningtable",
-    "dog",
-    "horse",
-    "motorbike",
-    "person",
-    "pottedplant",
-    "sheep",
-    "sofa",
-    "train",
-    "tvmonitor",
-]
-
 
 def pathify(path):
     if type(path) == str:
