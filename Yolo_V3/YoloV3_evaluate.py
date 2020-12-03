@@ -48,9 +48,9 @@ print("After Loading:", weight_reader.offset)
 # TODO create Datamodule for COCO and evaluate on COCO dataset,
 # for now I'm just loading official COCO weights to export pytorch friendly weights
 
-# trainer = pl.Trainer(gpus=1, checkpoint_callback=False, max_epochs=10000)
-# trainer.test(model, datamodule=data)
+trainer = pl.Trainer(gpus=1, checkpoint_callback=False, max_epochs=10000)
+trainer.test(model, datamodule=data)
 
 # save_pretrained_model in pth format
-filepath = "pretrained_yolov3-coco-model_weights.pth"
-torch.save(model.state_dict(), filepath)
+# filepath = "pretrained_yolov3-coco-model_weights.pth"
+# torch.save(model.state_dict(), filepath)

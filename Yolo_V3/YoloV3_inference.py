@@ -193,7 +193,7 @@ class InferenceModel:
 filepath = "pretrained_yolov3-coco-model_weights.pth"
 inference_pipeline = InferenceModel(weights_path=filepath)
 result_pil_image, bboxes = inference_pipeline.predict(
-    Path(configs.BASE_DIR) / "VOCdevkit/VOC2007/JPEGImages/000017.jpg"
+    Path(configs.BASE_DIR) / "val2017/000000002299.jpg"
 )
 result_pil_image.save("result.png")
 print(bboxes)

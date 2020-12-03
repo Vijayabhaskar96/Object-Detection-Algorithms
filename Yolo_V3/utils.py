@@ -181,7 +181,7 @@ def mAP(pred_boxes, true_boxes, iou_threshold=0.5, num_classes=20):
         recalls = TP_cumsum / (total_true_bboxes + epsilon)
         precisions = torch.div(TP_cumsum, (TP_cumsum + FP_cumsum + epsilon))
         average_precisions.append(calculate_ap(precisions, recalls))
-    return sum(average_precisions) / len(average_precisions)
+    return sum(average_precisions) / (len(average_precisions) + 1e-32)
 
 
 def yolo_to_normal(boxes):

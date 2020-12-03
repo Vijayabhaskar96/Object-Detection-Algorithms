@@ -335,7 +335,7 @@ class YoloV3Loss(nn.Module):
 
 
 class YoloV3Model(pl.LightningModule):
-    def __init__(self, num_anchors=3, num_attrib=25):
+    def __init__(self, num_anchors=3, num_attrib=configs.NUM_CLASSES + 5):
         super(YoloV3Model, self).__init__()
         self.anchor_boxes = torch.tensor(
             [
@@ -464,6 +464,6 @@ if __name__ == "__main__":
     model = YoloV3Model(num_attrib=5 + configs.NUM_CLASSES)
     data = YoloV3DataModule()
     trainer = pl.Trainer(
-        gpus=0, overfit_batches=1, checkpoint_callback=False, max_epochs=10
+        gpus=1, overfit_batches=1, checkpoint_callback=False, max_epochs=10
     )
     trainer.fit(model, datamodule=data)
