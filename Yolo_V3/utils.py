@@ -249,7 +249,7 @@ def get_bboxes(y, predictions, iou_threshold, threshold, S, B, device):
         )
         nms_boxes = torch.cat([idx_arr, nms_boxes], dim=1)
 
-        true_bboxes2 = all_true_bboxes[all_true_bboxes[:, 0] > threshold]
+        true_bboxes2 = all_true_bboxes[all_true_bboxes[:, 1] > threshold]
         idx_arr = torch.full(
             size=(len(true_bboxes2), 1), fill_value=float(idx), device=device
         )
@@ -261,7 +261,7 @@ def get_bboxes(y, predictions, iou_threshold, threshold, S, B, device):
     else:
         x = []
     if all_true_boxes:
-        y = torch.cat(all_true_boxes).tolist()
+        y = torch.unique(torch.cat(all_true_boxes), dim=0).tolist()
     else:
         y = []
     return x, y
