@@ -73,5 +73,5 @@ trainer.test(model, datamodule=data)
 # TODO fix low mAP when run on windows machine , probably due to default tensor/array dataypes are different in both OS(32bit vs 64bit)
 
 # save_pretrained_model in pth format
-filepath = "pretrained_yolov2-voc-model_weights.pth"
-torch.save(model.state_dict(), filepath)
+# filepath = "pretrained_yolov2-voc-model_weights.pth"
+# torch.save(model.state_dict(), filepath)
