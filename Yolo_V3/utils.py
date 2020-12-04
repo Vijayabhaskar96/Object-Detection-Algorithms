@@ -224,6 +224,8 @@ def get_bboxes(y, predictions, iou_threshold, threshold, S, B, device):
                 continue
             bboxes[:, 1] = torch.sigmoid(bboxes[:, 1])
             bboxes = bboxes[bboxes[:, 1] > threshold]
+            bboxes[:, 2:] /= grid_size
+            true_bboxes[:, 2:] /= grid_size
             all_true_bboxes.append(true_bboxes)
             all_bboxes.append(bboxes)
         if len(all_bboxes) == 0:

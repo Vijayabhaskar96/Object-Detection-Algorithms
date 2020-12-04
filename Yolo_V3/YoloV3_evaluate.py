@@ -13,7 +13,7 @@ model = YoloV3_model.YoloV3Model()
 data = YoloV3DataModule()
 # +
 weight_reader = WeightReader(
-    r"F:\WinPy3710\notebooks\Object Detection Algorithm Implementations\Yolo_V3\yolov3.weights",
+    "yolov3.weights",
     initial_offset=5,
 )
 
