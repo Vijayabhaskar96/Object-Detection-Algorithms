@@ -463,7 +463,5 @@ class YoloV3Model(pl.LightningModule):
 if __name__ == "__main__":
     model = YoloV3Model(num_attrib=5 + configs.NUM_CLASSES)
     data = YoloV3DataModule()
-    trainer = pl.Trainer(
-        gpus=1, overfit_batches=1, checkpoint_callback=False, max_epochs=10
-    )
+    trainer = pl.Trainer(gpus=1, checkpoint_callback=False, max_epochs=1000)
     trainer.fit(model, datamodule=data)
